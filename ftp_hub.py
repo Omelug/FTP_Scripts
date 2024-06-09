@@ -55,7 +55,7 @@ def scan_all_ranges(port, after_days):
             select(Range).filter(or_(
                 Range.save_date < days_ago,
                 Range.save_date == None
-            )).limit(20)
+            )).limit(100)
         )
         if not range_list:
             logging.error("RANGE table is empty\n\tYou can use --save_ranges for load to RANGE")
