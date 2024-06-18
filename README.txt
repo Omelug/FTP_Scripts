@@ -2,6 +2,11 @@ Inspiraci a kousky kódu jsem bral z těchto míst.
 
 https://github.com/richmas-l/Anonymous-FTP-Scanner/blob/main/ftpscanner.py
 https://github.com/Sunlight-Rim/FTPSearcher/tree/main?tab=readme-ov-file
+https://github.com/rethyxyz/FTPAutomator/blob/main/FTPAutomator.py
+https://github.com/tfwcodes/FTP-exploits.git
+
+Pokud máte Shodan API:
+https://github.com/imnikola/ShodanAnomymousDirs/blob/master/ShodanOpenDirs.py
 
 
 

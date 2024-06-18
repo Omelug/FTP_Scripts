@@ -1,0 +1,8 @@
+rady pro me:
+-
+
+ - unit testy na asychroni funkce
+ - zachycovani errorů do logu (asyc logging)
+ - zkusit si tam dat vlastni server abych mohl něco předpokládat
+ - nakreslit sii tu asychroni cast na tabuli
+ -
