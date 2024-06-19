@@ -13,8 +13,9 @@ DEFAULT_CONFIG = {
     },
     "ftp_forest": {
         "save_trees": True,
-        "connect_timeout": 2,
-        "forest_timeout": 6
+        "connect_timeout": 5,
+        "forest_timeout": 30,
+        "max_workers": 150
     },
     "ftp_db": {
         "db_path": f"{folder_path}/ftp_hub.db"

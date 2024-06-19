@@ -84,8 +84,8 @@ if __name__ == '__main__':
         asyncio.run(scan_all_ranges(port=21, after_days=args.last))
     if args.anon_all is not None:
         print(f"check_all_ftp_anon() last {args.anon_all} days")
-        ftp_conns = asyncio.run(FTP_Conns_after(after_days=7))
+        ftp_ids = asyncio.run(FTP_Conns_after(after_days=7))
         scanner = Scanner()
-        asyncio.run(scanner.scan(ftp_conns))
+        asyncio.run(scanner.scan(ftp_ids))
     if args.print_ftp_list:
         asyncio.run(print_ftp_list())

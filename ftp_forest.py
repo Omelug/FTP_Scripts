@@ -1,3 +1,5 @@
+from line_profiler import LineProfiler
+profile = LineProfiler()
 import argparse
 import asyncio
 import ftplib
@@ -50,7 +52,6 @@ def get_args():
         try:
             await session.commit()
         except Exception as db_e:
-            await session.rollback()
             print_e(f"Database error : {db_e}")"""
 
 async def print_tree(client, ftp_conn, directory, output_file, indent=0):
@@ -78,14 +79,14 @@ async def handle_error(e, ftp_conn):
     ftp_conn.status = "failed"
     print_e(f"Error counts: {error_counts}")
 
-
-async def connect_async(ftp_id: int, user, password):
+async def connect_async(ftp_id: int, user, password, login_info_id=None):
     async with get_session() as session:
-        ftp_conn : FTPConn = await ftp_by_id(ftp_id, session)
-        await create_login(session, user, password)
+        ftp_conn: FTPConn = await ftp_by_id(ftp_id, session)
+        success = False
+
         try:
             client = aioftp.Client(encoding='iso-8859-2')
-            success = False
+
             async with async_timeout.timeout(conf['connect_timeout']):
                 await client.connect(ftp_conn.ip, ftp_conn.port)
                 await client.login(user, password)
@@ -93,35 +94,32 @@ async def connect_async(ftp_id: int, user, password):
                 success = True
                 print_ok(f"{ftp_conn} connected")
 
-            try:
-                async with async_timeout.timeout(conf['forest_timeout']):
-                    output_folder = Path("./output/tree")
-                    output_folder.mkdir(parents=True, exist_ok=True)
-                    file = f"{ftp_conn.ip}_{ftp_conn.port}_{user}_{password}.txt"
-                    output_file_path = f"{output_folder}/{file}"
-                    ftp_conn.path = f"{output_file_path}"
-                    async with aiofiles.open(output_file_path, mode="w") as output_file:
-                        await print_tree(client, ftp_conn, "/", output_file)
-                        ftp_conn.path = f"{file}"
-            finally:
-                pass
+            async with async_timeout.timeout(conf['forest_timeout']):
+                output_folder = Path("./output/tree")
+                output_folder.mkdir(parents=True, exist_ok=True)
+                file = f"{ftp_conn.ip}_{ftp_conn.port}_{user}_{password}.txt"
+                output_file_path = f"{output_folder}/{file}"
+                ftp_conn.path = f"{output_file_path}"
+                async with aiofiles.open(output_file_path, mode="w") as output_file:
+                    await print_tree(client, ftp_conn, "/", output_file)
+                    ftp_conn.path = str(file)
 
         except Exception as e:
             await handle_error(e, ftp_conn)
         finally:
             ftp_conn.check_date = datetime.now()
             try:
-                print(f"{ftp_conn.ip} awdwadaw {ftp_conn.status}")
+                #print(f"{ftp_conn.ip} awdwadaw {ftp_conn.status}")
                 await add_login(
                     ftp_conn.id,
                     session,
                     user, password,
-                    success=success
+                    success=success,
+                    login_info_id=login_info_id
                 )
                 if success:
                     print(f"Connected to {ftp_conn}")
                 session.add(ftp_conn)
-                await session.commit()
             except Exception as db_e:
                 traceback.print_exc()
                 print_e(f"Database error: {db_e}")
@@ -130,29 +128,27 @@ class Scanner():
     def __init__(self):
         self.queue = asyncio.Queue()
 
-    async def worker(self):
+    async def worker(self, login_info_id=None):
         while True:
             try:
                 ftp_id, user, password = await self.queue.get()
-                #print_d(f"{ftp_conn} {user} {password}")
-                await connect_async(ftp_id, user, password)
-            except asyncio.CancelledError:
-                return
+                await connect_async(ftp_id, user, password, login_info_id=login_info_id)
+                self.queue.task_done()
             except KeyboardInterrupt:
                 print_e("\n You have interrupted scan_all_async")
             except Exception as e:
-                print_e(f"Error processing task {e}")  # Log the error
-            finally:
-                self.queue.task_done()
+                print_e(f"Error processing task {e}")
 
-    async def scan(self, ftp_conns , user="anonymous", password="", max_workers=25, after_days=CONFIG['ftp_hub']["old_delay_days"]): #TODO
+    async def scan(self, ftp_ids , user="anonymous", password="", max_workers=conf['max_workers'], after_days=CONFIG['ftp_hub']["old_delay_days"]): #TODO
         print_ok(f"Scan {user}:{password}")
+        async with get_session() as session:
+            login_info_id = await create_login(session, user, password)
 
-        for ftp in ftp_conns:
-            await self.queue.put((ftp.id, user, password))
+        for ftp_id in ftp_ids:
+            await self.queue.put((ftp_id, user, password))
 
         workers = [
-            asyncio.create_task(self.worker())
+            asyncio.create_task(self.worker(login_info_id=login_info_id))
             for _ in range(max_workers)
         ]
         await self.queue.join()
@@ -170,8 +166,8 @@ def crack(user=None, password=None, file=None):
                 else:
                     print_e(f"Ignoring invalid line: {line.strip()}")
     elif user is not None and password is not None:
-        ftp_conns = FTP_Conns_for_LogInfo(user=user, password=password)
-        asyncio.run(Scanner().scan(ftp_conns, user=user, password=password))
+        ftp_ids = FTP_Conns_for_LogInfo(user=user, password=password)
+        asyncio.run(Scanner().scan(ftp_ids, user=user, password=password))
     else:
         raise ValueError("You need to provide user and password or file with user:password pairs")
 
@@ -181,8 +177,8 @@ if __name__ == '__main__':
     tasks_list = []
     scanner = Scanner()
     if ARGS.anon_all:
-        ftp_conns = asyncio.run(FTP_Conns_after(after_days=7))
-        Scanner().scan(ftp_conns)
+        ftp_ids = asyncio.run(FTP_Conns_after(after_days=7))
+        Scanner().scan(ftp_ids)
     try:
         if ARGS.anon_all_async:
             ftp_conns = asyncio.run(FTP_Conns_after(after_days=7))
