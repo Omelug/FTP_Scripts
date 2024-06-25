@@ -8,6 +8,8 @@ import asyncio
 import logging
 from sqlalchemy import or_
 import argparse
+
+import ftp_forest
 from ftp_forest import *
 
 logger = logging.getLogger(__name__)
@@ -21,15 +23,12 @@ def get_args():
     parser = argparse.ArgumentParser(usage="Example: save_ranges -> scan_all_ranges -> check_all_ftp_anon")
     parser.add_argument("--save_ranges", action="store_true",
                         help="ranges.txt file with ranges in format <ip_start>\t<ip_stop>\t<count>\t<date>\tcompany")
-    parser.add_argument("--scan_all_ranges", type=int, nargs='?', const=7, default=None,
+    parser.add_argument("--scan_all_ranges", action="store_true",
                         help="-scan_all <n> : Scan all RANGE in the database, rescan older than n days, default 7")
-    parser.add_argument("--last", type=int, default=7,
-                        help="-anon_all <n> : Try anonymous: login for all FTP_con, retry older than n days, default 7")
-    parser.add_argument("--anon_all", type=str, nargs='?', const=7, default=None,
-                        help="-anon_all <n> : Try anonymous: login for all FTP_con, retry older than n days, default 7")
     parser.add_argument("--print_ftp_list", action="store_true",
                         help="Print ftp list to stdout")
-    return parser.parse_args()
+    args, unknown = parser.parse_known_args()
+    return args
 
 
 async def save_range(ip_a, ip_b):
@@ -52,7 +51,7 @@ async def save_range_from_file(path=conf['ranges']):
                 print_ok(f"Saved new range|{ip_a.strip()}|-|{ip_b.strip()}|")
 
 
-async def scan_all_ranges(port, after_days):
+async def scan_all_ranges(port, after_days=conf["old_delay_days"]):
     async with get_session() as session:
         days_ago = datetime.now() - timedelta(days=after_days)
         result = await session.execute(
@@ -72,20 +71,21 @@ async def print_ftp_list():
         result = await session.execute(select(FTPConn))
         [print(ftp) for ftp in result.scalars()]
 
+async def main():
+    args = get_args()
+    try:
+        if args.save_randges:
+            print(f"save_range_from_file()")
+            asyncio.run(save_range_from_file())
+        if args.scan_all_ranges:
+            print("scan_all_ranges()")
+            asyncio.run(scan_all_ranges(port=21))
+        if args.print_ftp_list:
+            await print_ftp_list()
+    except AttributeError:
+        print(f"Invalid arguments for ftp_hub")
+        print(f"Try running ftp_forest")
+        await ftp_forest.main()
 
 if __name__ == '__main__':
-
-    args = get_args()
-    if args.save_ranges:
-        print(f"save_range_from_file()")
-        asyncio.run(save_range_from_file())
-    if args.scan_all_ranges is not None:
-        print("scan_all_ranges()")
-        asyncio.run(scan_all_ranges(port=21, after_days=args.last))
-    if args.anon_all is not None:
-        print(f"check_all_ftp_anon() last {args.anon_all} days")
-        ftp_ids = asyncio.run(FTP_Conns_after(after_days=7))
-        scanner = Scanner()
-        asyncio.run(scanner.scan(ftp_ids))
-    if args.print_ftp_list:
-        asyncio.run(print_ftp_list())
+    asyncio.run(main())

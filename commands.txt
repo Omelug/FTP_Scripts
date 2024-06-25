@@ -2,3 +2,7 @@
 
 
 #hydra -l userlogin -P password-list-adress ftp://----IP--Address -V
+
+#TODO napsat jak vytvořit postgres databázi a jak ji nalinkovat
+
+#delete empty files find . -type f -empty -delete

@@ -1,3 +1,5 @@
+ftp:heslo123
+admin:heslo123
 anonymous:
 anonymous:anonymous
 root:rootpasswd
