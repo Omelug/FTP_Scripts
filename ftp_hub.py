@@ -1,17 +1,8 @@
-# this is compilation of some scripts, because i wante work with sqite
-
-
-# https://github.com/rethyxyz/FTPAutomator/blob/main/FTPAutomator.py
-# https://github.com/Sunlight-Rim/FTPSearcher/tree/main?tab=readme-ov-file
-#
-import asyncio
-import logging
-from sqlalchemy import or_
-import argparse
-
+from sqlalchemy.dialects.postgresql import insert
 import ftp_forest
+import ftp_nmap
 from ftp_forest import *
-
+import logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 from ftp_db import *
@@ -24,40 +15,38 @@ def get_args():
     parser.add_argument("--save_ranges", action="store_true",
                         help="ranges.txt file with ranges in format <ip_start>\t<ip_stop>\t<count>\t<date>\tcompany")
     parser.add_argument("--scan_all_ranges", action="store_true",
-                        help="-scan_all <n> : Scan all RANGE in the database, rescan older than n days, default 7")
+                        help="-scan_all: Scan all RANGE in the database, rescan older than old_delay_days")
+    parser.add_argument("--scan_all_versions", action="store_true",
+                        help="--scan_all_versions : Scan version of all connected")
     parser.add_argument("--print_ftp_list", action="store_true",
                         help="Print ftp list to stdout")
     args, unknown = parser.parse_known_args()
-    return args
-
-
-async def save_range(ip_a, ip_b):
-    async with get_session() as session:
-        stmt = select(Range).filter_by(ip_a=ip_a, ip_b=ip_b)
-        result = await session.execute(stmt)
-        existing_record = result.scalars().first()
-        if existing_record:
-            return False
-        session.add(Range(ip_a=ip_a, ip_b=ip_b))
-        await session.commit()
-        return True
-
+    return parser, args
 
 async def save_range_from_file(path=conf['ranges']):
-    with open(conf['input_folder'] + path, 'r') as ip_list:
-        for line in ip_list:
+    ranges_to_save = [] #get all ranges from file
+    async with aiofiles.open(conf['input_folder'] + path, 'r') as ip_list:
+        async for line in ip_list:
             ip_a, ip_b = line.strip().split('\t')[:2]
-            if await save_range(ip_a.strip(), ip_b.strip()):
-                print_ok(f"Saved new range|{ip_a.strip()}|-|{ip_b.strip()}|")
+            ranges_to_save.append((ip_a.strip(), ip_b.strip()))
 
+
+    # insert all ranges to db (fast)
+    async with get_session() as session:
+        query = insert(Range).values([{"ip_a": ip_a, "ip_b": ip_b} for ip_a, ip_b in ranges_to_save])
+        do_nothing_stmt = query.on_conflict_do_nothing(index_elements=['ip_a', 'ip_b'])
+        await session.execute(do_nothing_stmt)
+        await session.commit()
+
+    print_ok(f"New ranges were saved to database")
 
 async def scan_all_ranges(port, after_days=conf["old_delay_days"]):
     async with get_session() as session:
         days_ago = datetime.now() - timedelta(days=after_days)
         result = await session.execute(
             select(Range).filter(or_(
-                Range.save_date < days_ago,
-                Range.save_date == None
+                Range.scan_date < days_ago,
+                Range.scan_date == None
             ))
         )
         range_list = result.scalars().all()
@@ -72,20 +61,31 @@ async def print_ftp_list():
         [print(ftp) for ftp in result.scalars()]
 
 async def main():
-    args = get_args()
-    try:
-        if args.save_randges:
-            print(f"save_range_from_file()")
-            asyncio.run(save_range_from_file())
-        if args.scan_all_ranges:
-            print("scan_all_ranges()")
-            asyncio.run(scan_all_ranges(port=21))
-        if args.print_ftp_list:
-            await print_ftp_list()
-    except AttributeError:
-        print(f"Invalid arguments for ftp_hub")
-        print(f"Try running ftp_forest")
-        await ftp_forest.main()
+    parser, args = get_args()
+    if '-h' in sys.argv or '--help' in sys.argv:
+        parser.print_help()
+    if args.save_ranges:
+        print(f"save_range_from_file()")
+        await save_range_from_file()
+    if args.scan_all_ranges:
+        print("scan_all_ranges()")
+        await scan_all_ranges(port=21)
+    if args.scan_all_versions:
+        print("scan_all_versions()")
+        await ftp_nmap.scan_all_versions()
+    if args.print_ftp_list:
+        await print_ftp_list()
+    return any((args.save_ranges, args.scan_all_ranges, args.print_ftp_list, args.scan_all_versions))
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    if asyncio.run(main()):
+        exit(0)
+    print(f"Invalid arguments for ftp_hub")
+    print(f"Try running ftp_forest")
+    if asyncio.run(ftp_forest.main()):
+        exit(0)
+    print(f"Invalid arguments for ftp_forest")
+    print(f"Try running ftp_nmap")
+    if asyncio.run(ftp_nmap.main()):
+        exit(0)
+    print(f"Invalid argument for all scripts")

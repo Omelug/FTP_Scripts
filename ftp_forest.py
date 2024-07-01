@@ -1,8 +1,8 @@
-from line_profiler import LineProfiler
+import hashlib
 
+from line_profiler import LineProfiler
 profile = LineProfiler()
 import argparse
-import re
 import asyncio
 import traceback
 from pathlib import Path
@@ -11,7 +11,6 @@ import aiofiles
 import aioftp
 import async_timeout
 
-import ftp_db
 from ftp_db import *
 from ftp_log import *
 
@@ -22,9 +21,9 @@ quite = False
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--anon_all", action="store_true",
-                        help="-anon_all <n> : Try anonymous: login for all FTP_con, retry older than n days")
-    parser.add_argument("-d", type=str, dest="list", default=ftp_db.DATABASE_URL_ASYNC,
-                        help=f"Path to database file ({ftp_db.DATABASE_URL_ASYNC} by default).")
+                        help="--anon_all <n> : Try anonymous: login for all FTP_con, retry older than n days")
+    parser.add_argument("-d", type=str, dest="list", default=CONFIG['ftp_db']['DATABASE_URL_ASYNC'],
+                        help=f"Path to database file ({CONFIG['ftp_db']['DATABASE_URL_ASYNC']} by default).")
     parser.add_argument("-lvl", type=int, dest="max_lvl", default=0,
                         help="Set up the maximum file tree level on FTP servers.")
     parser.add_argument("--quite", action="store_true",
@@ -34,10 +33,12 @@ def get_args():
     parser.add_argument('--crack', action="store_true", help='File containing user and password separated by :')
 
     args, unknown = parser.parse_known_args()
-    return args
+    return parser, args
 
 
-async def print_tree(client, ftp_conn, directory, output_file, indent=0):
+async def print_tree(client, ftp_conn, directory, output_file, indent=0, level=0):
+    if level > conf['max_tree_level']:
+        return
     try:
         files = await client.list(directory)
         for file in files:
@@ -45,8 +46,8 @@ async def print_tree(client, ftp_conn, directory, output_file, indent=0):
             file_line = ("\t" * indent) + f"{posix_path.stem}{posix_path.suffix}\n"
             await output_file.write(file_line)
             if file_info['type'] == 'dir':
-                await print_tree(client, ftp_conn, f"{directory}/{posix_path.name}", output_file, indent + 1)
-    except aioftp.errors.StatusCodeError:
+                await print_tree(client, ftp_conn, f"{directory}/{posix_path.name}", output_file, indent + 1, level=1)
+    except (aioftp.errors.StatusCodeError, ConnectionRefusedError):
         pass
 
 error_counts = {}
@@ -60,12 +61,23 @@ async def handle_error(e, ftp_conn):
     if not quite:
         print_e(f"{ftp_conn.ip} Error counts: {error_counts}")
 
+async def get_file_hash(file_path):
+    BUF_SIZE = 65536  # Read file in chunks of 1MB
+    md5 = hashlib.md5()
+    with open(file_path, 'rb') as f:
+        while True:
+            data = f.read(BUF_SIZE)
+            if not data:
+                break
+            md5.update(data)
+    return md5.hexdigest()
 
 async def connect_async(ftp_id: int, user, password, login_info_id=None):
     async with get_session() as session:
         ftp_conn: FTPConn = await ftp_by_id(ftp_id, session)
         success = False
 
+        new_file_path = None
         try:
             client = aioftp.Client(encoding='iso-8859-2')
 
@@ -75,23 +87,21 @@ async def connect_async(ftp_id: int, user, password, login_info_id=None):
                 ftp_conn.status = "connected"
                 success = True
                 print_ok(f"{ftp_conn} connected")
+
+            output_folder = Path(f"./output/tree/")
+            output_folder.mkdir(parents=True, exist_ok=True)
+            file = f"tmp_{ftp_conn.ip}_{ftp_conn.port}.txt"
+            output_file_path = f"{output_folder}/{file}"
+            new_file_path = "failed"
+
+
             try:
                 async with async_timeout.timeout(conf['forest_timeout']):
-                    subfolder = f"{user}_{password}"
-                    output_folder = Path(f"./output/tree/{subfolder}")
-                    output_folder.mkdir(parents=True, exist_ok=True)
-                    file = f"{ftp_conn.ip}_{ftp_conn.port}.txt"
-                    output_file_path = f"{output_folder}/{file}"
-                    ftp_conn.path = f"failed"
                     async with aiofiles.open(output_file_path, mode="w") as output_file:
                         await print_tree(client, ftp_conn, "/", output_file)
-                    ftp_conn.path = f"{output_file_path}"
-            except TimeoutError:
-                print_e(f"{ftp_conn} TimeoutError")
-                await output_file.write("TimeoutError")
-            except ConnectionResetError:
-                print_e(f"{ftp_conn} ConnectionResetError")
-                await output_file.write("TimeoutError")
+            except (TimeoutError, ConnectionResetError):
+                print_e(f"{e.__class__.__name__}")
+                await output_file.write(f"{e.__class__.__name__}")
             except ValueError:
                 print_e(f"{ftp_conn} ValueError (probably stupid encoding)")
                 await output_file.write("ValueError: stupid encoding")
@@ -101,15 +111,14 @@ async def connect_async(ftp_id: int, user, password, login_info_id=None):
             finally:
                 loop = asyncio.get_event_loop()
                 await loop.run_in_executor(None, os.sync)
-                with open(output_file_path, 'r') as file:
-                    content = file.read()
-                if not content.strip():
-                    Path(output_file_path).unlink()
-                    ftp_conn.path = "empty"
-                    print_ok(f"{ftp_conn} is empty")
+                file_hash = await get_file_hash(output_file_path)
+
+                new_file_path = os.path.dirname(output_file_path) + '/' + file_hash + '.txt'
+                if os.path.exists(new_file_path):
+                    os.remove(output_file_path)
                 else:
-                    ftp_conn.path = str(file)
-                    print_ok(f"{ftp_conn} tree saved to {output_file_path}")
+                    os.rename(output_file_path, new_file_path)
+                print_ok(f"{ftp_conn} tree saved to {output_file_path}")
         except Exception as e:
             await handle_error(e, ftp_conn)
         finally:
@@ -121,7 +130,8 @@ async def connect_async(ftp_id: int, user, password, login_info_id=None):
                     session,
                     user, password,
                     success=success,
-                    login_info_id=login_info_id
+                    login_info_id=login_info_id,
+                    file_path=new_file_path
                 )
                 session.add(ftp_conn)
                 await session.commit()
@@ -181,22 +191,24 @@ async def crack(user=None, password=None, file=None):
 
 
 async def main():
-    ARGS = get_args()
+
+    parser, ARGS = get_args()
     global quite
     quite = ARGS.quite
     try:
         if ARGS.anon_all:
-            ftp_ids = asyncio.run(FTP_Conns_after())
+            ftp_ids = await FTP_Conns_after()
             await Scanner().scan_ftp(ftp_ids)
         if ARGS.user and ARGS.password:
             await crack(user=ARGS.user, password=ARGS.password)
         elif ARGS.user or ARGS.password:
             print(f"You need user and password, not only {ARGS.user} {ARGS.password}", file=sys.stderr)
-            exit(1)
+            return False
         elif ARGS.crack:
             await crack(file=f"{CONFIG['ftp_hub']['input_folder']}{CONFIG['ftp_hub']['crack_file']}")
+        return any((ARGS.anon_all, ARGS.user, ARGS.password, ARGS.crack))
     except KeyboardInterrupt:
-        print_e("\n You have interrupted scan_all_async")
+        print_e("\n You have interrupted ftp_forest")
 
 
 if __name__ == '__main__':
