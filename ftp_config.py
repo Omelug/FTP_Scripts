@@ -7,7 +7,7 @@ folder_path = os.path.dirname(os.path.abspath(__file__))
 
 if not os.path.exists("ftp_secret.py"):
     with open("ftp_secret.py", 'w+') as f:
-        print("DATABASE_URL_ASYNC = 'postgresql+asyncpg://<database username>:<password>@localhost:5432/ftp_hub'", file=f)
+        print("DATABASE_URL_ASYNC = 'postgresql+asyncpg://<database username>:<password>@localhost:5432/<db_name>'", file=f)
         print("Please, edit ftp_secret.py")
     exit(0)
 else:

@@ -25,7 +25,8 @@ def get_ftp_version(ip, port):
             print_ok(f"{service}")
             if service['name'] == 'ftp':
                 print_ok(f"{ip}:{port}\t{service['product']}")
-                return str(service['product']), str(service['version']), str(service['ostype'])
+
+                return str(service['product']), service.get('version', None), service.get('ostype', None)
         return None, None, None
     except Exception as e:
         print(f"Error {e}")
@@ -35,13 +36,11 @@ async def scan_version(ftp_id):
     async with ftp_db.get_session() as session:
         ftp = await ftp_db.ftp_by_id(ftp_id, session)
         product,version, os_type = get_ftp_version(ftp.ip, ftp.port)
-        if any(x is not None for x in (product, version, os_type)):
-            ftp.product = product
-            ftp.version = version
-            ftp.os_type = os_type
-            await session.commit()
-        else:
-            print(f"Error {version}")
+        ftp.product = product
+        ftp.version = version
+        ftp.os_type = os_type
+        session.add(ftp)
+        await session.commit()
 
 async def scan_all_versions():
     ftp_list = await ftp_db.FTP_Conns_with_null_version()

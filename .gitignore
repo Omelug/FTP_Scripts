@@ -1,9 +1,11 @@
 /external_tools/
 /external_tools/FTPSearcher/
 ./.idea
-./output/
-/output/
+output/
 /.idea/
 ftp_hub.db
 ftp_secret.py
 config.json
+.venv
+./input/
+input/
