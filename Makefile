@@ -7,6 +7,6 @@ venv_clean:
 req_save:
 	pip3 freeze > requirements.txt
 
-install: FORCE
+install:
 	pip3 install -r requirements.txt
 	pip3 install -e ./lib/input_parser/

@@ -22,15 +22,11 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--anon_all", action="store_true",
                         help="--anon_all <n> : Try anonymous: login for all FTP_con, retry older than n days")
-    parser.add_argument("-d", type=str, dest="list", default=CONFIG['ftp_db']['DATABASE_URL_ASYNC'],
-                        help=f"Path to database file ({CONFIG['ftp_db']['DATABASE_URL_ASYNC']} by default).")
-    parser.add_argument("-lvl", type=int, dest="max_lvl", default=0,
-                        help="Set up the maximum file tree level on FTP servers.")
     parser.add_argument("--quite", action="store_true",
-                        help="Do not display servers that are not responding in the terminal log.")
+                        help="TODO NOT AVAIBLE NOW | Do not display servers that are not responding in the terminal log.")
     parser.add_argument('--user', help='Username')
     parser.add_argument('--password', help='Password')
-    parser.add_argument('--crack', action="store_true", help='File containing user and password separated by :')
+    parser.add_argument('--crack', action="store_true", help='File containing user and password separated by : ')
 
     args, unknown = parser.parse_known_args()
     return parser, args
