@@ -18,13 +18,13 @@ DEFAULT_CONFIG = {
             "output_folder": f"{folder_path}/output/",
             "input_folder": f"{folder_path}/input/",
             "ranges": f"./ranges.txt",
-            "crack_file": "./ftp-betterdefaultpasslist.txt",
+            "crack_file": "./ftp_default_user_pass_list.txt",
             "old_delay_days": 7,
             "color_output": True
         },
         "ftp_forest": {
             "save_trees": True,
-            "connect_timeout": 15,
+            "connect_timeout": 25,
             "forest_timeout": 120,
             "max_workers": 300,
             "max_tree_level": 50

@@ -8,8 +8,8 @@ __________________________________________________________________
 BEFORE START:
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-1/ create postgreSQL database
-2/ python3 ftp_config.py --generate_default for generating config.json
+1/ create postgresSQL database
+2/ Run "python3 ftp_config.py --generate_default" for generating config.json
 3/ edit database connection in ftp_secret.py (optionally edit config.json)
 4/ ftp_hub is main script, good luck
 
@@ -21,14 +21,14 @@ You can use ftp_hub.py to every command, it will be automatic redirected
 
 ftp_hub.py
 
-usage: Example: save_ranges -> scan_all_ranges -> check_all_ftp_anon
+usage: Example: save_ranges -> scan_all_ranges -> check_all_ftp_anon | scan_all_versions
 
 options:
-      -h, --help           show this help message and exit
-      --save_ranges        ranges.txt file with ranges in format <ip_start> <ip_stop> <count> <date> company
-      --scan_all_ranges    -scan_all: Scan all RANGE in the database, rescan older than old_delay_days
-      --scan_all_versions  --scan_all_versions : Scan version of all connected
-      --print_ftp_list     Print ftp list to stdout
+      -h, --help            show this help message and exit
+      --save_ranges         ranges.txt file with ranges in format <ip_start> <ip_stop> <count> <date> company
+      --scan_all_ranges     --scan_all: Scan all RANGE in the database, rescan older than old_delay_days
+      --scan_all_versions   --scan_all_versions : Scan version of all connected
+      --print_ftp_list      Print ftp list to stdout
 
 __________________________________________________________________
 ftp_forest.py

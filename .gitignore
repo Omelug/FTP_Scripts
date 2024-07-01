@@ -5,3 +5,5 @@
 /output/
 /.idea/
 ftp_hub.db
+ftp_secret.py
+config.json
