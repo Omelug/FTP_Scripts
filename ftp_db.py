@@ -219,15 +219,15 @@ async def FTP_Conns_for_LogInfo(user:str, password:str):
 async def FTP_Conns_with_null_version():
     async with get_session() as session:
         result = await session.execute(
-            select(FTPConn.id)
+            select(FTPConn.id, FTPConn.ip, FTPConn.port)
             .where(
                 and_(
-                    FTPConn.version == None,
-                    FTPConn.status == "connected"
+                    FTPConn.product == None
+                    #FTPConn.status == "connected"
                 )
             )
         )
-        return result.scalars().all()
+        return result.all()
 
 # Create a synchronous engine
 sync_engine = create_engine(conf['DATABASE_URL_ASYNC'].replace("+asyncpg", ""))

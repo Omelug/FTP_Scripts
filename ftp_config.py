@@ -25,7 +25,7 @@ DEFAULT_CONFIG = {
         "ftp_forest": {
             "save_trees": True,
             "connect_timeout": 25,
-            "forest_timeout": 120,
+            "forest_timeout": 600,
             "max_workers": 300,
             "max_tree_level": 50
         },

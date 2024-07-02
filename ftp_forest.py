@@ -141,15 +141,16 @@ class Scanner():
         self.queue = asyncio.Queue()
 
     async def worker(self, login_info_id=None):
-        while True:
-            try:
-                ftp_id, user, password = await self.queue.get()
-                await connect_async(ftp_id, user, password, login_info_id=login_info_id)
-                self.queue.task_done()
-            except KeyboardInterrupt:
-                print_e("\n You have interrupted scan_all_async")
-            except Exception as e:
-                print_e(f"Error processing task {e}")
+        try:
+            while True:
+                try:
+                    ftp_id, user, password = await self.queue.get()
+                    await connect_async(ftp_id, user, password, login_info_id=login_info_id)
+                    self.queue.task_done()
+                except Exception as e:
+                    print_e(f"Error processing task {e}")
+        except KeyboardInterrupt:
+            print_e("\n You have interrupted scan_all_async")
 
     async def scan_ftp(self, ftp_ids=[], user="anonymous", password="", max_workers=conf['max_workers'],
                        after_days=CONFIG['ftp_hub']["old_delay_days"]):  #TODO

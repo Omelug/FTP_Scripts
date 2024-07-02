@@ -81,3 +81,11 @@ https://github.com/rethyxyz/FTPAutomator/blob/main/FTPAutomator.py
 https://github.com/tfwcodes/FTP-exploits.git
 https://github.com/imnikola/ShodanAnomymousDirs/blob/master/ShodanOpenDirs.py
 
+
+__________________________________________________________________
+TODO
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+1/ control prints, add quite and debug option
+2/ make cleaner Key Interrupt, leave live connections save progress (tree are not cut)
+
