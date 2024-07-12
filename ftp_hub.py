@@ -1,8 +1,13 @@
-from sqlalchemy.dialects.postgresql import insert
 import ftp_forest
 import ftp_nmap
 from ftp_forest import *
 import logging
+import logging
+
+import ftp_forest
+import ftp_nmap
+from ftp_forest import *
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 from ftp_db import *
@@ -13,23 +18,22 @@ conf = CONFIG["ftp_hub"]
 def get_args():
     parser = argparse.ArgumentParser(usage="Example: save_ranges -> scan_all_ranges -> check_all_ftp_anon")
     parser.add_argument("--save_ranges", action="store_true",
-                        help="ranges.txt file with ranges in format <ip_start>\t<ip_stop>\t<count>\t<date>\tcompany")
+                        help="Saved from ./inpu/ranges.txt with ranges in format <ip_start>\t<ip_stop>...")
     parser.add_argument("--scan_all_ranges", action="store_true",
-                        help="-scan_all: Scan all RANGE in the database, rescan older than old_delay_days")
+                        help="--scan_all: Scan all RANGE in the database, rescan older than old_delay_days")
     parser.add_argument("--scan_all_versions", action="store_true",
-                        help="--scan_all_versions : Scan version of all connected")
+                        help="Scan version of all with null version")
     parser.add_argument("--print_ftp_list", action="store_true",
                         help="Print ftp list to stdout")
     args, unknown = parser.parse_known_args()
     return parser, args
 
 async def save_range_from_file(path=conf['ranges']):
-    ranges_to_save = [] #get all ranges from file
+    ranges_to_save = [] #all ranges from file
     async with aiofiles.open(conf['input_folder'] + path, 'r') as ip_list:
         async for line in ip_list:
             ip_a, ip_b = line.strip().split('\t')[:2]
             ranges_to_save.append((ip_a.strip(), ip_b.strip()))
-
 
     # insert all ranges to db (fast)
     async with get_session() as session:
@@ -43,13 +47,12 @@ async def save_range_from_file(path=conf['ranges']):
 async def scan_all_ranges(port, after_days=conf["old_delay_days"]):
     async with get_session() as session:
         days_ago = datetime.now() - timedelta(days=after_days)
-        result = await session.execute(
+        range_list = await session.execute(
             select(Range).filter(or_(
                 Range.scan_date < days_ago,
                 Range.scan_date == None
             ))
-        )
-        range_list = result.scalars().all()
+        ).scalars().all()
         if not range_list:
             logging.error("RANGE table is empty\n\tYou can use --save_ranges for load to RANGE")
         for range_obj in range_list:

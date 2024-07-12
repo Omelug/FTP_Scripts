@@ -1,11 +1,9 @@
 import argparse
-import sys
+import asyncio
 
 import nmap3
 
 import ftp_db
-import asyncio
-
 from ftp_log import print_ok, print_e
 
 
@@ -47,7 +45,7 @@ async def scan_version(session, ftp_id, ip, port):
     except Exception as e:
         print(f"Error {e}")
 
-class Scanner():
+class Scanner:
     def __init__(self):
         self.queue = asyncio.Queue()
 
@@ -82,6 +80,7 @@ class Scanner():
 
 async def scan_all_versions():
         await Scanner().scan_all_versions()
+
 async def main():
     parser, args = get_args()
     if args.scan_all_versions:

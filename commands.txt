@@ -6,3 +6,6 @@
 #TODO napsat jak vytvořit postgres databázi a jak ji nalinkovat
 
 #delete empty files find . -type f -empty -delete
+
+
+grep -iHnr  "serialy" *

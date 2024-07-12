@@ -16,7 +16,7 @@ INSTALLATION:
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 On Linux:
     sudo apt-get install python3 python3-pip
-    make venv_init && source .venv/bin/activate (if you want venv)
+    make venv_init && source .venv/bin/activate (if you use venv)
     make install
 __________________________________________________________________
 BEFORE START:
@@ -88,4 +88,5 @@ TODO
 
 1/ control prints, add quite and debug option
 2/ make cleaner Key Interrupt, leave live connections save progress (tree are not cut)
+3/ progress bar
 

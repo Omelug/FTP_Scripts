@@ -2,21 +2,20 @@ import json
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+
 import masscan
 from sqlalchemy import Column, Integer, String, Boolean, create_engine, UniqueConstraint
 from sqlalchemy import DateTime, ForeignKey, Table
 from sqlalchemy import not_, exists, and_
 from sqlalchemy import or_
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.future import select
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
-import ftp_hub
 from ftp_log import *
 
 conf = CONFIG["ftp_db"]
@@ -32,13 +31,12 @@ engine = create_async_engine(
         poolclass=NullPool
     )
 
-SessionLocal = sessionmaker(
-        class_=AsyncSession,
-        bind=engine,
-        expire_on_commit=False,
-        autoflush=False
-    )
-
+SessionLocal = async_sessionmaker(
+    class_=AsyncSession,
+    bind=engine,
+    expire_on_commit=False,
+    autoflush=False
+)
 
 @asynccontextmanager
 async def get_session():

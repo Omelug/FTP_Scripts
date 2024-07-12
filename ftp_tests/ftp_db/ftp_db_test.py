@@ -1,15 +1,9 @@
-import unittest
+import asyncio
 import os
 import sys
-import datetime
-from unittest.mock import mock_open, patch
-import sys
-import pytest
 import unittest
-from unittest.mock import Mock, AsyncMock
-import asyncio
+
 from sqlalchemy import text
-import asyncio
 
 #clean before init
 db_path = './ftp_hub.db'

@@ -15,15 +15,12 @@ from ftp_db import *
 from ftp_log import *
 
 conf = CONFIG["ftp_forest"]
-quite = False
 
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--anon_all", action="store_true",
                         help="--anon_all <n> : Try anonymous: login for all FTP_con, retry older than n days")
-    parser.add_argument("--quite", action="store_true",
-                        help="TODO NOT AVAIBLE NOW | Do not display servers that are not responding in the terminal log.")
     parser.add_argument('--user', help='Username')
     parser.add_argument('--password', help='Password')
     parser.add_argument('--crack', action="store_true", help='File containing user and password separated by : ')
@@ -47,18 +44,15 @@ async def print_tree(client, ftp_conn, directory, output_file, indent=0, level=0
         pass
 
 error_counts = {}
-
-
 async def handle_error(e, ftp_conn):
     error_type = type(e).__name__
     error_counts[error_type] = error_counts.get(error_type, 0) + 1
     ftp_conn.error = f"{e}"
     ftp_conn.status = "failed"
-    if not quite:
-        print_e(f"{ftp_conn.ip} Error counts: {error_counts}")
+    print_e(f"{ftp_conn.ip} Error counts: {error_counts}")
 
 async def get_file_hash(file_path):
-    BUF_SIZE = 65536  # Read file in chunks of 1MB
+    BUF_SIZE = 8192  # Read file in chunks
     md5 = hashlib.md5()
     with open(file_path, 'rb') as f:
         while True:
@@ -95,7 +89,7 @@ async def connect_async(ftp_id: int, user, password, login_info_id=None):
                 async with async_timeout.timeout(conf['forest_timeout']):
                     async with aiofiles.open(output_file_path, mode="w") as output_file:
                         await print_tree(client, ftp_conn, "/", output_file)
-            except (TimeoutError, ConnectionResetError):
+            except (TimeoutError, ConnectionResetError) as e:
                 print_e(f"{e.__class__.__name__}")
                 await output_file.write(f"{e.__class__.__name__}")
             except ValueError:
@@ -120,7 +114,6 @@ async def connect_async(ftp_id: int, user, password, login_info_id=None):
         finally:
             ftp_conn.check_date = datetime.now()
             try:
-                #print(f"{ftp_conn.ip} awdwadaw {ftp_conn.status}")
                 await add_login(
                     ftp_conn.id,
                     session,
@@ -136,7 +129,7 @@ async def connect_async(ftp_id: int, user, password, login_info_id=None):
                 print_e(f"Database error: {db_e}")
 
 
-class Scanner():
+class Scanner:
     def __init__(self):
         self.queue = asyncio.Queue()
 
@@ -152,8 +145,9 @@ class Scanner():
         except KeyboardInterrupt:
             print_e("\n You have interrupted scan_all_async")
 
-    async def scan_ftp(self, ftp_ids=[], user="anonymous", password="", max_workers=conf['max_workers'],
-                       after_days=CONFIG['ftp_hub']["old_delay_days"]):  #TODO
+    async def scan_ftp(self, ftp_ids=None, user="anonymous", password="", max_workers=conf['max_workers']):
+        if ftp_ids is None:
+            ftp_ids = []
         print_ok(f"Scan {user}:{password}")
         async with get_session() as session:
             login_info_id = await create_login(session, user, password)
@@ -190,8 +184,6 @@ async def crack(user=None, password=None, file=None):
 async def main():
 
     parser, ARGS = get_args()
-    global quite
-    quite = ARGS.quite
     try:
         if ARGS.anon_all:
             ftp_ids = await FTP_Conns_after()

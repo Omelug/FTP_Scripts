@@ -9,4 +9,4 @@ req_save:
 
 install:
 	pip3 install -r requirements.txt
-	pip3 install -e ./lib/input_parser/
+	pip3 install git+https://github.com/Omelug/python_mini_modules.git#egg=input_parser
