@@ -1,5 +1,6 @@
 import hashlib
 
+import yappi
 from line_profiler import LineProfiler
 profile = LineProfiler()
 import argparse
@@ -63,57 +64,59 @@ async def get_file_hash(file_path):
     return md5.hexdigest()
 
 async def connect_async(ftp_id: int, user, password, login_info_id=None):
+    success = False
+    new_file_path = None
+
     async with get_session() as session:
         ftp_conn: FTPConn = await ftp_by_id(ftp_id, session)
-        success = False
 
-        new_file_path = None
+    try:
+        client = aioftp.Client(encoding='iso-8859-2')
+
+        async with async_timeout.timeout(conf['connect_timeout']):
+            await client.connect(ftp_conn.ip, ftp_conn.port)
+            await client.login(user, password)
+            ftp_conn.status = "connected"
+            success = True
+            print_ok(f"{ftp_conn} connected")
+
+        output_folder = Path(f"./output/tree/")
+        output_folder.mkdir(parents=True, exist_ok=True)
+        file = f"tmp_{ftp_conn.ip}_{ftp_conn.port}.txt"
+        output_file_path = f"{output_folder}/{file}"
+        new_file_path = "failed"
+
         try:
-            client = aioftp.Client(encoding='iso-8859-2')
-
-            async with async_timeout.timeout(conf['connect_timeout']):
-                await client.connect(ftp_conn.ip, ftp_conn.port)
-                await client.login(user, password)
-                ftp_conn.status = "connected"
-                success = True
-                print_ok(f"{ftp_conn} connected")
-
-            output_folder = Path(f"./output/tree/")
-            output_folder.mkdir(parents=True, exist_ok=True)
-            file = f"tmp_{ftp_conn.ip}_{ftp_conn.port}.txt"
-            output_file_path = f"{output_folder}/{file}"
-            new_file_path = "failed"
-
-
-            try:
-                async with async_timeout.timeout(conf['forest_timeout']):
-                    async with aiofiles.open(output_file_path, mode="w") as output_file:
-                        await print_tree(client, ftp_conn, "/", output_file)
-            except (TimeoutError, ConnectionResetError) as e:
-                print_e(f"{e.__class__.__name__}")
-                await output_file.write(f"{e.__class__.__name__}")
-            except ValueError:
-                print_e(f"{ftp_conn} ValueError (probably stupid encoding)")
-                await output_file.write("ValueError: stupid encoding")
-            except Exception as e:
-                print(f"Tree Error: {e.__class__.__name__}")
-                traceback.print_exc()
-            finally:
-                loop = asyncio.get_event_loop()
-                await loop.run_in_executor(None, os.sync)
-                file_hash = await get_file_hash(output_file_path)
-
-                new_file_path = os.path.dirname(output_file_path) + '/' + file_hash + '.txt'
-                if os.path.exists(new_file_path):
-                    os.remove(output_file_path)
-                else:
-                    os.rename(output_file_path, new_file_path)
-                print_ok(f"{ftp_conn} tree saved to {output_file_path}")
+            async with async_timeout.timeout(conf['forest_timeout']):
+                async with aiofiles.open(output_file_path, mode="w") as output_file:
+                    await print_tree(client, ftp_conn, "/", output_file)
+        except (TimeoutError, ConnectionResetError) as e:
+            print_e(f"{e.__class__.__name__}")
+            await output_file.write(f"{e.__class__.__name__}")
+        except ValueError:
+            print_e(f"{ftp_conn} ValueError (probably stupid encoding)")
+            await output_file.write("ValueError: stupid encoding")
         except Exception as e:
-            await handle_error(e, ftp_conn)
+            print(f"Tree Error: {e.__class__.__name__}")
+            traceback.print_exc()
         finally:
-            ftp_conn.check_date = datetime.now()
-            try:
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, os.sync)
+            file_hash = await get_file_hash(output_file_path)
+
+            new_file_path = os.path.dirname(output_file_path) + '/' + file_hash + '.txt'
+            if os.path.exists(new_file_path):
+                os.remove(output_file_path)
+                print_ok(f"{ftp_conn} tree detected - {new_file_path}")
+            else:
+                os.rename(output_file_path, new_file_path)
+                print_s(f"{ftp_conn} new tree - {new_file_path}")
+    except Exception as e:
+        await handle_error(e, ftp_conn)
+    finally:
+        ftp_conn.check_date = datetime.now()
+        try:
+            async with get_session() as session:
                 await add_login(
                     ftp_conn.id,
                     session,
@@ -124,9 +127,9 @@ async def connect_async(ftp_id: int, user, password, login_info_id=None):
                 )
                 session.add(ftp_conn)
                 await session.commit()
-            except Exception as db_e:
-                traceback.print_exc()
-                print_e(f"Database error: {db_e}")
+        except Exception as db_e:
+            traceback.print_exc()
+            print_e(f"Database error: {db_e}")
 
 
 class Scanner:
@@ -159,10 +162,15 @@ class Scanner:
             asyncio.create_task(self.worker(login_info_id=login_info_id))
             for _ in range(max_workers)
         ]
-        await self.queue.join()
-
-        for worker in workers:
-            worker.cancel()
+        try:
+            await self.queue.join()
+        except Exception as e:
+            print_e(f"An error occurred: {e}")
+        finally:
+            for worker in workers:
+                worker.cancel()
+            await asyncio.gather(*workers, return_exceptions=True)
+            print_ok("All workers have been cancelled.")
 
 
 async def crack(user=None, password=None, file=None):
@@ -182,7 +190,8 @@ async def crack(user=None, password=None, file=None):
 
 
 async def main():
-
+    yappi.set_clock_type("cpu")
+    yappi.start()
     parser, ARGS = get_args()
     try:
         if ARGS.anon_all:
@@ -197,6 +206,14 @@ async def main():
             await crack(file=f"{CONFIG['ftp_hub']['input_folder']}{CONFIG['ftp_hub']['crack_file']}")
         return any((ARGS.anon_all, ARGS.user, ARGS.password, ARGS.crack))
     except KeyboardInterrupt:
+        yappi.stop()
+        threads = yappi.get_thread_stats()
+        for thread in threads:
+            print(
+                "Function stats for (%s) (%d)" % (thread.name, thread.id)
+            )  # it is the Thread.__class__.__name__
+            yappi.get_func_stats(ctx_id=thread.id).print_all()
+
         print_e("\n You have interrupted ftp_forest")
 
 

@@ -61,11 +61,12 @@ options:
   -h, --help           show this help message and exit
   --anon_all           --anon_all <n> : Try anonymous: login for all FTP_con,
                        retry older than n days
-  --quite              TODO NOT AVAIBLE NOW | Do not display servers that are
+  --quite              TODO NOT AVAIBLE NOW | Do not display servers that are unaccessible
                        not responding in the terminal log.
   --user USER          Username
   --password PASSWORD  Password
-  --crack              File containing user and password separated by :
+  --crack              File containing user and password separated by :, default ftp_default_user_pass_list.txt
+
 
 
 
@@ -89,4 +90,7 @@ TODO
 1/ control prints, add quite and debug option
 2/ make cleaner Key Interrupt, leave live connections save progress (tree are not cut)
 3/ progress bar
-
+4/ optimalization, dont need open session during tree scan
+5/ add count to login creds
+6/ add function to create tree folder with all files from one login:passowrd pair
+7/ add regex lists for search for secreat files (sprobably earch on github some scripts)

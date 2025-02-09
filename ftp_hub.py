@@ -1,11 +1,6 @@
 import ftp_forest
 import ftp_nmap
-from ftp_forest import *
-import logging
-import logging
-
-import ftp_forest
-import ftp_nmap
+import ftp_stats
 from ftp_forest import *
 
 logger = logging.getLogger(__name__)
@@ -14,6 +9,7 @@ from ftp_db import *
 from ftp_config import CONFIG
 
 conf = CONFIG["ftp_hub"]
+
 
 def get_args():
     parser = argparse.ArgumentParser(usage="Example: save_ranges -> scan_all_ranges -> check_all_ftp_anon")
@@ -25,11 +21,14 @@ def get_args():
                         help="Scan version of all with null version")
     parser.add_argument("--print_ftp_list", action="store_true",
                         help="Print ftp list to stdout")
+    parser.add_argument("--print_pass_stat", action="store_true",
+                        help="Print basic password stats")
     args, unknown = parser.parse_known_args()
     return parser, args
 
+
 async def save_range_from_file(path=conf['ranges']):
-    ranges_to_save = [] #all ranges from file
+    ranges_to_save = []  #all ranges from file
     async with aiofiles.open(conf['input_folder'] + path, 'r') as ip_list:
         async for line in ip_list:
             ip_a, ip_b = line.strip().split('\t')[:2]
@@ -44,24 +43,27 @@ async def save_range_from_file(path=conf['ranges']):
 
     print_ok(f"New ranges were saved to database")
 
+
 async def scan_all_ranges(port, after_days=conf["old_delay_days"]):
     async with get_session() as session:
         days_ago = datetime.now() - timedelta(days=after_days)
-        range_list = await session.execute(
+        range_list = (await session.execute(
             select(Range).filter(or_(
                 Range.scan_date < days_ago,
                 Range.scan_date == None
             ))
-        ).scalars().all()
+        )).scalars().all()
         if not range_list:
             logging.error("RANGE table is empty\n\tYou can use --save_ranges for load to RANGE")
         for range_obj in range_list:
             await range_obj.scan(session=session, port=port)
 
+
 async def print_ftp_list():
     async with get_session() as session:
         result = await session.execute(select(FTPConn))
         [print(ftp) for ftp in result.scalars()]
+
 
 async def main():
     parser, args = get_args()
@@ -78,9 +80,13 @@ async def main():
         await ftp_nmap.scan_all_versions()
     if args.print_ftp_list:
         await print_ftp_list()
+    if args.print_pass_stat:
+        await ftp_stats.print_pass_stat()
     return any((args.save_ranges, args.scan_all_ranges, args.print_ftp_list, args.scan_all_versions))
 
+
 if __name__ == '__main__':
+
     if asyncio.run(main()):
         exit(0)
     print(f"Invalid arguments for ftp_hub")

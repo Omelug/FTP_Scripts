@@ -4,7 +4,7 @@ async-timeout==4.0.3
 asyncpg==0.29.0
 colorama==0.4.6
 greenlet==3.0.3
-input_parser==0.1
+input_parser==0.2
 line_profiler==4.1.3
 psycopg2==2.9.9
 python-masscan==1.0.0
@@ -12,3 +12,4 @@ python3-nmap==1.6.0
 simplejson==3.19.2
 SQLAlchemy==2.0.31
 typing_extensions==4.12.2
+yappi
