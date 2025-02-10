@@ -11,6 +11,17 @@ For advice, feedback, or help, contact me:
 Discord: gulemo
 Github: https://github.com/Omelug
 
+-----------------------------------------------------------------
+DISCLAIMER:
+
+To be honest, I am little bit angry about this project.
+Doing somesthing what has been done milion times before wasnt just good idea.
+It has some benefits for me, but compared to go scanners it is slow as fuck.
+So if you know python, dont fork this, make brutespray wrapper or somesthing...
+
+----------------------------------------------------------------
+
+
 __________________________________________________________________
 INSTALLATION:
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -55,13 +66,13 @@ __________________________________________________________________
 ftp_forest.py
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-usage: ftp_forest.py [-h] [--anon_all] [-d LIST] [-lvl MAX_LVL] [--quite] [--user USER] [--password PASSWORD] [--crack]
+usage: ftp_forest.py [-h] [--anon_all] [-d LIST] [-lvl MAX_LVL] [--quiet] [--user USER] [--password PASSWORD] [--crack]
 
 options:
   -h, --help           show this help message and exit
   --anon_all           --anon_all <n> : Try anonymous: login for all FTP_con,
                        retry older than n days
-  --quite              TODO NOT AVAIBLE NOW | Do not display servers that are unaccessible
+  --quiet              TODO NOT AVAIBLE NOW | Do not display servers that are unaccessible
                        not responding in the terminal log.
   --user USER          Username
   --password PASSWORD  Password

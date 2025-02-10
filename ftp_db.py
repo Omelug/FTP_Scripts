@@ -184,19 +184,20 @@ class LoginInfo(Base):
 
 async def FTP_Conns_after(after_days=CONFIG['ftp_hub']["old_delay_days"]):
     async with get_session() as session:
-        seven_days_ago = datetime.now() - timedelta(days=after_days)
+        days_ago = datetime.now() - timedelta(days=after_days)
         result = await session.execute(
             select(FTPConn.id).filter(
                 or_(
-                    FTPConn.check_date < seven_days_ago,
+                    FTPConn.check_date < days_ago,
                     FTPConn.check_date == None
                 )
             ).order_by(FTPConn.check_date)
         )
         return result.scalars().all()
 
-async def FTP_Conns_for_LogInfo(user:str, password:str):
+async def FTP_Conns_for_LogInfo(user:str, password:str,after_days=CONFIG['ftp_hub']["old_delay_days"]):
     LoginInfoAlias = aliased(LoginInfo)
+    days_ago = datetime.now() - timedelta(days=after_days)
     ftp_login_subquery = select(1).select_from(
         ftp_login.join(LoginInfoAlias, ftp_login.c.login_id == LoginInfoAlias.id)).where(
         and_(
@@ -208,8 +209,13 @@ async def FTP_Conns_for_LogInfo(user:str, password:str):
     async with get_session() as session:
         result = await session.execute(
             select(FTPConn.id)
+            .join(ftp_login, FTPConn.id == ftp_login.c.ftp_id)
             .where(
-                not_(exists(ftp_login_subquery))
+                or_(
+                    ftp_login.c.modified_at < days_ago,
+                    not_(exists(ftp_login_subquery))
+                )
+
             )
         )
         return result.scalars().all()

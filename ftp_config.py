@@ -27,7 +27,8 @@ DEFAULT_CONFIG = {
             "connect_timeout": 30,
             "forest_timeout": 3600, #hour
             "max_workers": 300,
-            "max_tree_level": 50
+            "max_tree_level": 50,
+            "quiet": False
         },
         "ftp_db": {
             "DATABASE_URL_ASYNC": DATABASE_URL_ASYNC,

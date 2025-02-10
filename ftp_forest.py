@@ -48,9 +48,11 @@ error_counts = {}
 async def handle_error(e, ftp_conn):
     error_type = type(e).__name__
     error_counts[error_type] = error_counts.get(error_type, 0) + 1
-    ftp_conn.error = f"{e}"
-    ftp_conn.status = "failed"
-    print_e(f"{ftp_conn.ip} Error counts: {error_counts}")
+
+    if not conf['quiet']:
+        ftp_conn.error = f"{e}"
+        ftp_conn.status = "failed"
+        print_e(f"{ftp_conn.ip} Error counts: {error_counts}")
 
 async def get_file_hash(file_path):
     BUF_SIZE = 8192  # Read file in chunks

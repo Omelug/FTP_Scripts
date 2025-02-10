@@ -17,7 +17,7 @@ FROM "FTP_conn"
 JOIN ftp_login ON "FTP_conn".id = ftp_login.ftp_id
 JOIN login_info ON ftp_login.login_id = login_info.id
 WHERE ftp_login.success = true
-AND public.ftp_login.file_path LIKE '%2e16dc550bd37e9452ce7cc9ea8554ae%';
+AND public.ftp_login.file_path LIKE '%333d14aef7d45a28dc47b124f41c58f3%';
 
 WITH user_pass_stats AS (
     SELECT
